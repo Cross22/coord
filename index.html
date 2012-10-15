@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Coordinate system</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #000;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #fff;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				color:#000;
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+
+			}
+
+			a {
+				color: red;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="container"></div>
+		<div id="info">
+			(c) by M.Grubert, uses <a href="http://github.com/mrdoob/three.js" target="_blank">three.js</a> renderer </br> 
+			MOVE mouse &amp; press LEFT/A: rotate, MIDDLE/S: zoom, RIGHT/D: pan </br>
+			H: Toggle Left Handed / Right Handed,   C: Cycle background color
+		</div>
+
+		<script src="three.min.js"></script>		
+		<script src="helvetiker_bold.typeface.js"></script> <!-- Font definition -->
+
+		<script src="Detector.js"></script>
+		<!-- <script src="Stats.js"></script> -->
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var camera, controls, scene, renderer, root;
+
+			var lefthanded= false; // can be toggled by user
+			var letterMeshes;
+			var clearColor=1;
+
+			init();
+			animate();
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 1000 );
+				camera.position.z = 150;
+
+				controls = new THREE.TrackballControls( camera );
+
+				controls.rotateSpeed = 1.0;
+				controls.zoomSpeed = 1.2;
+				controls.panSpeed = 0.8;
+
+				controls.noZoom = false;
+				controls.noPan = false;
+
+				controls.staticMoving = true;
+				controls.dynamicDampingFactor = 0.3;
+
+				controls.keys = [ 65, 83, 68 ];
+
+				controls.addEventListener( 'change', render );
+
+				// world
+
+				scene = new THREE.Scene();
+				//scene.fog = new THREE.FogExp2( 0xcccccc, 0.002 );
+
+
+				// lights
+
+				light = new THREE.DirectionalLight( 0xdddddd );
+				light.position.set( 1, 1, 1 );
+				scene.add( light );
+
+				light = new THREE.DirectionalLight( 0xdddddd );
+				light.position.set( -1, -1, -1 );
+				scene.add( light );
+
+				light = new THREE.AmbientLight( 0x222222 );
+				scene.add( light );
+
+
+				// renderer
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				//renderer.setClearColor( scene.fog.color, 1 );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				container = document.getElementById( 'container' );
+				container.appendChild( renderer.domElement );
+/*
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				stats.domElement.style.zIndex = 100; 
+				container.appendChild( stats.domElement );
+*/
+				window.addEventListener( 'resize', onWindowResize, false );
+				window.addEventListener( 'keyup',  onKeyUp , false );
+				
+				initGeometry();
+		}
+		
+		function initGeometry()				
+		{		
+				// geometry stuff
+				var arrowOffset = 40; // length of arrows
+
+				root= new THREE.Object3D();
+				root.position.set(-0.5, -0.5, 0);
+				root.position.multiplyScalar( arrowOffset );
+				scene.add(root);
+
+				// arrowhead
+				var arrowgeometry = new THREE.CylinderGeometry( 0, 1.5, 3, 20, 3 );
+				var cylgeometry = new THREE.CylinderGeometry( 0.5, 0.5, 40, 10, 3 );
+				
+				var red =  new THREE.MeshLambertMaterial( { color:0xff0000, wireframe:false } );
+				var green =  new THREE.MeshLambertMaterial( { color:0x00ff00, wireframe:false } );
+				var blue =  new THREE.MeshLambertMaterial( { color:0x0000ff, wireframe:false } );
+
+				var colors= [ red, green, blue ];
+
+				
+				// arrow heads
+				for ( var i = 0; i < 3; i ++ ) {
+					var material= colors[i];
+				
+					var mesh = new THREE.Mesh( arrowgeometry, material );					
+					if (i==0) {
+						mesh.position.x = 1;
+						mesh.rotation.z = -Math.PI/2;
+					} else if (i==1) {
+						mesh.position.y = 1;						
+					} else {				
+						if (!lefthanded) {
+							mesh.position.z = 1;
+							mesh.rotation.x = Math.PI/2;
+						} else {
+							mesh.position.z = -1;
+							mesh.rotation.x = -Math.PI/2;
+						}
+					}
+					
+					mesh.position.multiplyScalar( arrowOffset );
+					mesh.updateMatrix();
+					mesh.matrixAutoUpdate = false;
+					root.add( mesh );
+				}
+
+				// cylinders
+				for ( var i = 0; i < 3; i ++ ) {
+					var material= colors[i];
+				
+					var mesh = new THREE.Mesh( cylgeometry, material );					
+					if (i==0) {
+						mesh.position.x = 1;
+						mesh.rotation.z = -Math.PI/2;
+					} else if (i==1) {
+						mesh.position.y = 1;						
+					} else {
+						if (!lefthanded) {
+							mesh.position.z = 1;
+							mesh.rotation.x = Math.PI/2;
+						} else {
+							mesh.position.z = -1;
+							mesh.rotation.x = -Math.PI/2;
+						}
+					}
+
+					var cylOffset= arrowOffset/2;
+					mesh.position.multiplyScalar( cylOffset );
+					mesh.updateMatrix();
+					mesh.matrixAutoUpdate = false;
+					root.add( mesh );
+				}
+
+				var textGeomX = new THREE.TextGeometry( "X", {size:6, height: 2, curveSegments: 5, font:"helvetiker", weight:"bold", style: "normal", 
+				bevelEnabled:true, bevelThickness:0.2, bevelSize:0.2 } );
+				var textGeomY = new THREE.TextGeometry( "Y", {size:6, height: 2, curveSegments: 5, font:"helvetiker", weight:"bold", style: "normal", 
+				bevelEnabled:true, bevelThickness:0.2, bevelSize:0.2 } );
+				var textGeomZ = new THREE.TextGeometry( "Z", {size:6, height: 2, curveSegments: 5, font:"helvetiker", weight:"bold", style: "normal", 
+				bevelEnabled:true, bevelThickness:0.2, bevelSize:0.2 } );
+
+				var letters= [textGeomX, textGeomY, textGeomZ];
+
+				letterMeshes= new Array;
+
+				for ( var i = 0; i < 3; i ++ ) {
+					var material= colors[i];				
+					var mesh = new THREE.Mesh( letters[i], material );
+					if (i==0) {											
+						mesh.position.x = 1;
+						mesh.position.z = -0.1;
+					} else if (i==1) {
+						mesh.position.y = 0.8;
+						mesh.position.x = 0.15;
+					} else {
+						if (!lefthanded) {
+							mesh.position.z = 1;
+						} else {
+							mesh.position.z = -1;
+						}
+						mesh.position.y = - 0.2;
+					}
+
+					mesh.position.multiplyScalar( arrowOffset +4 );
+					mesh.updateMatrix();
+					mesh.matrixAutoUpdate = false;
+					letterMeshes[i] = mesh; // store for later update
+					root.add( mesh );
+				}
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				controls.handleResize();
+				render();
+			}
+
+			function onKeyUp( event ) {	
+				var KEY_H=72; var KEY_C=67;
+				if ( event.keyCode == KEY_H ) {
+					scene.remove( root );
+					lefthanded= !lefthanded;
+					initGeometry();
+					render();
+				}
+				if ( event.keyCode == KEY_C ) {
+					if (clearColor<=0) {
+						clearColor=1;
+					} else {
+						clearColor -= 0.25;
+					}					
+					col= new THREE.Color;
+					col.setRGB( clearColor, clearColor, clearColor);
+					renderer.setClearColor( col );
+					render();
+				}
+			}
+
+
+			function animate() {
+				requestAnimationFrame( animate );
+				controls.update();
+			}
+
+			function render() {
+				for (var i=0; i<3; i++) {
+					var mesh= letterMeshes[i];
+					mesh.matrix.lookAt( camera.position, mesh.position, camera.up );
+					mesh.rotation.setEulerFromRotationMatrix( mesh.matrix, mesh.eulerOrder );				  
+				}
+
+				renderer.render( scene, camera );
+				//stats.update();
+
+			}
+
+
+		</script>
+
+	</body>
+</html>
